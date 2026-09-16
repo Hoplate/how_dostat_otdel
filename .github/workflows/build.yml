@@ -1,0 +1,94 @@
+name: Native game - test and export
+on:
+  push:
+    branches: [main, native-godot]
+    paths:
+      - 'game/**'
+      - 'tools/**'
+      - 'docs/**'
+      - 'README.md'
+      - 'start.cmd'
+      - 'start.sh'
+      - '.github/workflows/build.yml'
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Godot 4.5.2 and native export templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable
+          mkdir -p .tools/godot "$HOME/.local/share/godot/export_templates/4.5.2.stable"
+          curl -fL --retry 3 "$BASE/Godot_v4.5.2-stable_linux.x86_64.zip" -o .tools/engine.zip
+          curl -fL --retry 3 "$BASE/Godot_v4.5.2-stable_export_templates.tpz" -o .tools/templates.tpz
+          unzip -q -j .tools/engine.zip -d .tools/godot
+          unzip -q -j .tools/templates.tpz 'templates/windows_release_x86_64.exe' 'templates/linux_release.x86_64' -d "$HOME/.local/share/godot/export_templates/4.5.2.stable"
+          chmod +x .tools/godot/Godot_v4.5.2-stable_linux.x86_64
+          echo "GODOT_BIN=$PWD/.tools/godot/Godot_v4.5.2-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Native integration checks, ten playthroughs and exports
+        run: bash tools/ci_build.sh "$GODOT_BIN"
+      - name: Check exported Linux binary
+        run: build/linux/OfficeMischief.x86_64 --headless --quit-after 60 -- --smoke-test --self-test
+      - name: Capture the real native renderer
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri
+          xvfb-run -a -s '-screen 0 1600x900x24' build/linux/OfficeMischief.x86_64 --audio-driver Dummy --resolution 1600x900 -- --capture "$PWD/artifacts/gameplay.png" --self-test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OfficeMischief-windows-x64
+          path: build/windows/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OfficeMischief-linux-x64
+          path: artifacts/OfficeMischief-linux-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-validation
+          path: |
+            artifacts/*.json
+            artifacts/*.log
+            artifacts/*.png
+          retention-days: 30
+  windows-smoke:
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: OfficeMischief-windows-x64
+          path: native
+      - name: Execute the actual Windows x64 export
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $PWD 'native\OfficeMischief.exe'
+          $log = Join-Path $PWD 'native-smoke.log'
+          $proc = Start-Process -FilePath $exe -ArgumentList @('--headless', '--quit-after', '120', '--log-file', $log, '--', '--smoke-test', '--self-test') -PassThru -Wait
+          if ($proc.ExitCode -ne 0) { throw "Native process exited with $($proc.ExitCode)" }
+          if (!(Test-Path $log)) { throw 'The native engine produced no log.' }
+          Get-Content $log
+          if (Select-String -Path $log -Pattern 'SCRIPT ERROR|Parse Error|Compilation failed|ERROR:' -Quiet) { throw 'Native runtime logged an error.' }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-native-smoke
+          path: native-smoke.log
+          retention-days: 30
