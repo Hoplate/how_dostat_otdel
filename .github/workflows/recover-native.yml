@@ -1,0 +1,65 @@
+name: Recover native source files
+on:
+  push:
+    paths: ['.github/workflows/recover-native.yml']
+permissions:
+  contents: write
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Recover complete archive members only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, io, lzma, os, tarfile
+          from pathlib import Path, PurePosixPath
+          recovered = None
+          for count in (5,4):
+              try:
+                  text = ''.join(Path(f'.transfer/{i:02d}.b64').read_text().strip()[:12000] for i in range(count))
+                  recovered = lzma.LZMADecompressor().decompress(base64.b64decode(text, validate=True))
+                  break
+              except (ValueError, lzma.LZMAError):
+                  continue
+          if recovered is None:
+              raise RuntimeError('Cannot decompress staged archive prefix')
+          allowed = {'game','tools','docs','README.md','start.cmd','start.sh','.gitignore','.gitattributes'}
+          files = []
+          archive = tarfile.open(fileobj=io.BytesIO(recovered), mode='r:')
+          try:
+              for item in archive:
+                  if item.offset_data + item.size > len(recovered):
+                      break
+                  p = PurePosixPath(item.name)
+                  if not item.isfile() or p.is_absolute() or '..' in p.parts or p.parts[0] not in allowed:
+                      raise RuntimeError(f'Unsafe member: {item.name}')
+                  data = archive.extractfile(item).read()
+                  if len(data) != item.size:
+                      break
+                  dest = Path(item.name)
+                  if dest.exists() and dest.read_bytes() != data:
+                      raise RuntimeError(f'Existing file would be overwritten: {dest}')
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(data)
+                  if dest.suffix == '.sh':
+                      os.chmod(dest, 0o755)
+                  files.append(item.name)
+          except tarfile.ReadError:
+              pass
+          if len(files) < 20:
+              raise RuntimeError('Too few complete source files recovered')
+          print('RECOVERED_FILES\n' + '\n'.join(files))
+          PY
+      - name: Commit recovered source and remove staging files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .gitattributes .gitignore README.md game docs
+          git rm -rf --ignore-unmatch -- .transfer .gitkeep
+          git commit -m 'feat: import native game source and character assets'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
