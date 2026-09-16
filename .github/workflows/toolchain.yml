@@ -1,0 +1,32 @@
+name: Godot native toolchain
+on:
+  push:
+    paths:
+      - '.github/workflows/toolchain.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download official pinned engine and templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p toolchain/templates
+          BASE=https://github.com/godotengine/godot-builds/releases/download/4.5.2-stable
+          curl -fL --retry 3 "$BASE/Godot_v4.5.2-stable_linux.x86_64.zip" -o engine.zip
+          curl -fL --retry 3 "$BASE/Godot_v4.5.2-stable_export_templates.tpz" -o templates.tpz
+          unzip -q -j engine.zip -d toolchain
+          unzip -q -j templates.tpz 'templates/windows_release_x86_64.exe' 'templates/linux_release.x86_64' -d toolchain/templates
+          chmod +x toolchain/Godot_v4.5.2-stable_linux.x86_64
+          toolchain/Godot_v4.5.2-stable_linux.x86_64 --headless --version
+          (cd toolchain && sha256sum Godot* templates/* > SHA256SUMS)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: godot-4.5.2-native-toolchain
+          path: toolchain/
+          retention-days: 3
+          compression-level: 9
