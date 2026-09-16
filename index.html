@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#10131a" />
+  <title>Как достать отдел — Дима на работе</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Russo+One&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <header class="topbar">
+      <button class="brand" id="helpBtn" aria-label="Правила игры"><span class="logo-mark">КДО</span><span><b>Как достать отдел</b><small>Дима на работе</small></span></button>
+      <section class="mission"><span class="eyebrow">ЭПИЗОД 03</span><strong>Ошибка печати</strong><span class="clock" id="clock">13:42</span></section>
+      <section class="meters">
+        <div><label>НАКАЛ ОТДЕЛА <b id="heatLabel">0%</b></label><div class="meter"><i id="heatBar"></i></div></div>
+        <div><label>ПАЛЕВО <b id="susLabel">0%</b></label><div class="meter danger"><i id="susBar"></i></div></div>
+        <div class="combo"><small>КОМБО</small><b id="combo">×1</b></div>
+      </section>
+    </header>
+
+    <section class="objective">
+      <span class="objective-icon">⌁</span><div><small>ТЕКУЩАЯ ЦЕЛЬ</small><b id="objectiveText">Изучи маршрут Паши и подготовь первую пакость</b></div>
+      <div class="progress-dots"><i class="done"></i><i id="dot2"></i><i id="dot3"></i><span id="taskCount">0 / 3</span></div>
+    </section>
+
+    <section class="office" id="office">
+      <div class="room workroom" data-room="Кабинет отдела"><div class="room-title">КАБИНЕТ ОТДЕЛА <span>01</span></div>
+        <div class="window"><i></i><i></i><i></i></div><div class="blind"></div>
+        <button class="hotspot pc" data-action="screen" style="--x:18%;--y:46%"><span>▰</span><em>Сменить заставку</em></button>
+        <button class="hotspot folders" data-action="folders" style="--x:73%;--y:48%"><span>▥</span><em>Переставить папки</em></button>
+        <div class="desk d1"><div class="monitor"></div><div class="chair"></div><span>ЛЕНА</span></div>
+        <div class="desk d2"><div class="monitor"></div><div class="chair"></div><span>МАРИНА</span></div>
+        <div class="plant">♠</div>
+      </div>
+      <div class="room hall" data-room="Холл"><div class="room-title">ХОЛЛ <span>02</span></div><div class="clockface">◷</div><div class="notice">ОБЪЯВЛЕНИЯ<br><i></i><i></i><i></i></div><div class="cooler">◉<br>▯</div></div>
+      <div class="room breakroom" data-room="Комната отдыха"><div class="room-title">КОМНАТА ОТДЫХА <span>03</span></div>
+        <div class="shelf">●　●　●</div><div class="fridge"><b>FREEZE</b><i></i><i></i></div>
+        <button class="hotspot coffee" data-action="coffee" style="--x:28%;--y:46%"><span>☕</span><em>Сервисный режим</em></button>
+        <div class="sofa"></div><div class="rug"></div><div class="plant p2">♠</div>
+      </div>
+      <div class="room printroom" data-room="Принт-зона"><div class="room-title">ПРИНТ-ЗОНА <span>04</span></div>
+        <div class="archive"><i></i><i></i><i></i><i></i><b>АРХИВ</b></div>
+        <button class="hotspot printer" data-action="printer" style="--x:42%;--y:49%"><span>▤</span><em>Подменить бумагу</em></button>
+        <div class="boxes">▣ ▣</div>
+      </div>
+      <div class="corridor"></div>
+      <div class="character dima" id="dima"><div class="bubble" id="bubble">Хм-м...</div><div class="head"><i></i></div><div class="coat"><i></i><b></b></div><div class="legs"></div><small>ДИМА</small></div>
+      <div class="character npc lena" data-npc="lena"><div class="vision"></div><div class="thought">Папки ровно?</div><div class="head"></div><div class="body"></div><small>ЛЕНА</small></div>
+      <div class="character npc marina" data-npc="marina"><div class="vision"></div><div class="thought">Пора за кофе</div><div class="head"></div><div class="body"></div><small>МАРИНА</small></div>
+      <div class="character npc pasha" data-npc="pasha"><div class="vision"></div><div class="thought">Где отчёт?</div><div class="alert">?</div><div class="head"><i></i></div><div class="body"></div><small>ПАША</small></div>
+    </section>
+
+    <footer class="bottombar">
+      <section class="inventory"><div class="caption"><small>КАРМАНЫ ДИМЫ</small><b>ИНВЕНТАРЬ</b></div><button class="slot active" data-item="sticker"><span>▱</span><small>СТИКЕРЫ</small><kbd>1</kbd></button><button class="slot" data-item="paper"><span>▤</span><small>ШУТОЧНЫЙ ЛИСТ</small><kbd>2</kbd></button><button class="slot empty"><span>＋</span><small>ПУСТО</small><kbd>3</kbd></button><button class="slot empty"><span>＋</span><small>ПУСТО</small><kbd>4</kbd></button></section>
+      <button class="innocent" id="innocentBtn"><span>◉</span><div><small>ОСОБЫЙ ПРИЁМ</small><b>НЕВИННОЕ ЛИЦО</b></div><kbd>SPACE</kbd></button>
+      <div class="legend"><span><i class="cyan"></i> Дима</span><span><i class="yellow"></i> Коллеги</span><span><i class="red"></i> Зона обзора</span></div>
+    </footer>
+  </main>
+  <div class="toast" id="toast"></div>
+  <div class="action-progress" id="actionProgress"><span id="actionName">Дима действует...</span><i></i></div>
+  <dialog id="intro"><button class="close" id="closeHelp">×</button><span class="episode">ЭПИЗОД 03</span><h1>Ошибка<br><em>печати</em></h1><p>Паша отправляет важный отчёт на печать каждые две минуты. Подмени бумагу, отвлеки коллег кофемашиной и успей сделать невинное лицо.</p><div class="brief"><span>▤</span><b>Твоя задача</b><small>Устрой 3 безобидные пакости и не поднимай «Палево» до 100%.</small></div><button class="start" id="startBtn">НАЧАТЬ РАБОЧИЙ ДЕНЬ <span>→</span></button></dialog>
+  <dialog id="result"><span class="episode" id="resultKicker">РАБОЧИЙ ДЕНЬ ЗАВЕРШЁН</span><h2 id="resultTitle">Легенда дня</h2><div class="result-score"><span><small>НАКАЛ</small><b id="finalHeat">0</b></span><span><small>ПАКОСТИ</small><b id="finalTasks">0/3</b></span><span><small>РАНГ</small><b id="finalRank">Стажёр</b></span></div><p id="resultText"></p><button class="start" id="restartBtn">ЕЩЁ ОДИН РАБОЧИЙ ДЕНЬ <span>↻</span></button></dialog>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
