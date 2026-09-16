@@ -1,0 +1,14 @@
+# Godot-generated/imported content
+.godot/
+**/.godot/
+*.tmp
+*.log
+# Local engine, exports and reports
+.tools/
+build/
+artifacts/
+# Editors/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
