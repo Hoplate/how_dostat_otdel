@@ -1,0 +1,55 @@
+name: Import verified native project
+on:
+  push:
+    paths:
+      - '.transfer/ready.json'
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and unpack native sources
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, io, json, os, tarfile
+          from pathlib import Path, PurePosixPath
+          manifest = json.loads(Path('.transfer/ready.json').read_text())
+          encoded = ''.join(Path(f'.transfer/{i:02d}.b64').read_text().strip() for i in range(manifest['parts']))
+          payload = base64.b64decode(encoded, validate=True)
+          if hashlib.sha256(payload).hexdigest() != manifest['sha256']:
+              raise RuntimeError('Source checksum mismatch; nothing will be written')
+          allowed = {'game','tools','docs','README.md','start.cmd','start.sh','.gitignore','.gitattributes'}
+          with tarfile.open(fileobj=io.BytesIO(payload), mode='r:xz') as archive:
+              members = archive.getmembers()
+              if sum(m.size for m in members) > 5000000:
+                  raise RuntimeError('Unexpected source bundle size')
+              for item in members:
+                  path = PurePosixPath(item.name)
+                  if not item.isfile() or path.is_absolute() or '..' in path.parts or path.parts[0] not in allowed:
+                      raise RuntimeError(f'Unsafe archive member: {item.name}')
+                  dest = Path(item.name)
+                  data = archive.extractfile(item).read()
+                  if dest.exists() and dest.read_bytes() != data:
+                      raise RuntimeError(f'Refusing to overwrite an existing different file: {dest}')
+              for item in members:
+                  dest = Path(item.name)
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  dest.write_bytes(archive.extractfile(item).read())
+                  if dest.suffix == '.sh':
+                      os.chmod(dest, 0o755)
+          print(f'Imported {len(members)} verified source files')
+          PY
+      - name: Commit native project and remove transfer files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .gitattributes .gitignore README.md game tools docs start.cmd start.sh
+          git rm -rf --ignore-unmatch -- .transfer .gitkeep
+          git commit -m 'feat: native Godot office game, coherent cast and contextual controls'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
