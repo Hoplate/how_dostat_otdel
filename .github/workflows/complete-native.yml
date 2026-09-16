@@ -1,0 +1,67 @@
+name: Complete native source publication
+on:
+  push:
+    branches: [native-godot]
+    paths: ['.github/workflows/complete-native.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: native-godot
+      - name: Verify and restore complete native sources
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, json, lzma, pathlib, shutil
+          expected = [
+            '31bfa0b02463ae2ca6dab04686477663b7c06970a4408bf5b7d4816e89f748f5',
+            'abba61cb661bc8c711916a777cdc05be71cb7fa2cd7f639e6682f52b70e041eb',
+            'd660ff4c08523326ec9288fbb7cc401233bc4e4fa442968260646208dfed5065',
+            '574071a73d764c7fb4bd28e22135c86e53416f678d76fe1ba9b024b7e221aeef',
+            '83b3e0428dfa30e96029cde3c9f96d813ddbacee2e689b7736b1ee7e8964d346',
+            'b3eea8f2c2fa80a996467511b97eb87bd25227ef45732374f78cd8db6bade510',
+          ]
+          parts = []
+          for index, checksum in enumerate(expected):
+              path = pathlib.Path(f'.repair/{index:02}.b64')
+              data = path.read_bytes().strip()
+              actual = hashlib.sha256(data).hexdigest()
+              if actual != checksum:
+                  raise SystemExit(f'Checksum mismatch: {path}: {actual}')
+              parts.append(data)
+          packed = base64.b64decode(b''.join(parts), validate=True)
+          assert hashlib.sha256(packed).hexdigest() == '030b41589440bcf65baa81ecc975c893c99025de65624f74c520085d29416f02'
+          raw = lzma.decompress(packed)
+          assert hashlib.sha256(raw).hexdigest() == '19228556f9319830509ff54cd5987195b870e22e020f23e2f380fa79aaffd68a'
+          files = json.loads(raw)
+          root = pathlib.Path.cwd().resolve()
+          for name, content in files.items():
+              path = (root / name).resolve()
+              if not path.is_relative_to(root) or '.git' in pathlib.Path(name).parts:
+                  raise SystemExit(f'Unsafe path: {name}')
+              if path.exists():
+                  raise SystemExit(f'Refusing to overwrite an existing source: {name}')
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(content, encoding='utf-8', newline='')
+              print(f'Restored {name}: {path.stat().st_size} bytes')
+          print(f'Verified and restored {len(files)} files.')
+          shutil.rmtree('.repair')
+          for name in ('import-native.yml', 'recover-native.yml', 'toolchain.yml', 'complete-native.yml'):
+              pathlib.Path('.github/workflows', name).unlink(missing_ok=True)
+          PY
+          chmod +x start.sh tools/ci_build.sh
+      - name: Commit complete project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'feat: complete native Godot game, controls, campaign, tests and desktop build workflow'
+          git push origin HEAD:native-godot
