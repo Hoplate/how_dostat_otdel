@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: native-godot
-      - name: Verify and restore complete native sources
+      - name: Verify and restore native source files only
         shell: bash
         run: |
           python3 - <<'PY'
@@ -41,7 +41,11 @@ jobs:
           assert hashlib.sha256(raw).hexdigest() == '19228556f9319830509ff54cd5987195b870e22e020f23e2f380fa79aaffd68a'
           files = json.loads(raw)
           root = pathlib.Path.cwd().resolve()
+          count = 0
           for name, content in files.items():
+              if name.startswith('.github/'):
+                  print(f'Workflow is installed separately by the repository connector: {name}')
+                  continue
               path = (root / name).resolve()
               if not path.is_relative_to(root) or '.git' in pathlib.Path(name).parts:
                   raise SystemExit(f'Unsafe path: {name}')
@@ -49,19 +53,19 @@ jobs:
                   raise SystemExit(f'Refusing to overwrite an existing source: {name}')
               path.parent.mkdir(parents=True, exist_ok=True)
               path.write_text(content, encoding='utf-8', newline='')
+              count += 1
               print(f'Restored {name}: {path.stat().st_size} bytes')
-          print(f'Verified and restored {len(files)} files.')
+          print(f'Verified and restored {count} source files.')
           shutil.rmtree('.repair')
-          for name in ('import-native.yml', 'recover-native.yml', 'toolchain.yml', 'complete-native.yml'):
-              pathlib.Path('.github/workflows', name).unlink(missing_ok=True)
           PY
           chmod +x start.sh tools/ci_build.sh
-      - name: Commit complete project
+      - name: Commit source files without changing workflows
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
-          git commit -m 'feat: complete native Godot game, controls, campaign, tests and desktop build workflow'
+          git add -A game tools start.cmd start.sh .repair
+          if git diff --cached --name-only | grep '^.github/'; then exit 1; fi
+          git commit -m 'feat: complete native Godot game, revised controls, campaign, tests and launchers'
           git push origin HEAD:native-godot
